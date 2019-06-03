@@ -12,7 +12,6 @@ class SVGArea {
         this.svg_elem.setAttributeNS(null, 'preserveAspectRatio', 'xMidYMid meet' );
         this.viewbox = [0,0,100,100];
         this.container_elem.appendChild(this.svg_elem);
-
     }
 
     set viewbox(v) {
@@ -20,9 +19,7 @@ class SVGArea {
         this._viewbox =v;
     }
 
-    get viewbox() { return this._viewbox; }
-
-    
+    get viewbox() { return this._viewbox; }   
 }
 
 class Annulus {
@@ -30,11 +27,13 @@ class Annulus {
     constructor( svgarea  ) {
         this._palette = [ COLOR0, COLOR1, COLOR2 ];
         this._stress = 0.0;
-        this._showDebug = true;
+        this._showDebug = false;
         this._frame =0;
         this._time =0;
         this._speed =0.000005;
-        this._animate =false;
+        this._animate =true;
+        this._thickness =0.5;
+        this._segs =40;
         this.svgarea = svgarea;
 
         svgarea.viewbox = [-2,-2,4,4];
@@ -49,6 +48,7 @@ class Annulus {
         this.svgarea.svg_elem.appendChild(this._debugg);
 
         this.update();
+        this.start();
 
     }
     
@@ -70,6 +70,12 @@ class Annulus {
 
     get animate()       { return this._animate; }
     set animate(b)      { this._animate = b; this.start(); }
+
+    get segments()      { return this._segs; }
+    set segments(n)     { this._segs = n; this.update() }
+
+    get thickness()     { return this._thickness; }
+    set thickness(n)    { this._thickness =n; this.update() }
 
     update() {
         this._path.setAttributeNS(null, 'fill', this.rgbToHex( this.stressToColor( this._stress ) ) );
@@ -94,6 +100,8 @@ class Annulus {
         window.requestAnimationFrame( animateStep );
     }
 
+    /* Linearly interpolate over _palette 0..2 by @stress on interval [0;1], using .5 as midpoint 
+     */
     stressToColor( stress ) {
         // Linearly interpolate over the colors in _palette using .5 as midpoint
         let scaled = stress / EXCITEMENT_SCALE;
@@ -128,11 +136,14 @@ class Annulus {
         return (Math.sin( (i/n + frame) * period ) + 1.0) / 2.0; 
     }
 
+    /* Return the SVG path obtained by rendering with the current parameters.
+     * Additionally, if showDebug is true, this function adds points and handles to the _debugg SVG group element.
+     */
     createPath() {
         const r = 1.0;
-        const out_segs = 40; // Number of inner segments
-        const in_segs = 40; // Number of outer segments
-        const thickness = 0.5; // Thickness of the ring
+        const out_segs = this._segs; // Number of inner segments
+        const in_segs = this._segs; // Number of outer segments
+        const thickness = this._thickness; // Thickness of the ring
         const t = r * (1.0-thickness);
         const s = Math.pow( this._stress, 2 ) + 0.05;
 
@@ -143,8 +154,9 @@ class Annulus {
         
         let theta =0;
         let theta_step =(Math.PI*2)/out_segs;
-        let hdist =(4/3)*Math.tan( Math.PI/(out_segs*2) );
-        
+        let hdist =0;
+       
+        // TODO: either use or delete
         let prng = 123456789; // Seed for prng
         let next_theta = function() {
                 prng ^= ( prng << 13 );
@@ -154,8 +166,6 @@ class Annulus {
                 //console.log( q );
                 return theta + theta_step * q;
             };
-
-        //for( let i =0 ; i <= out_segs; i++ ) {
             
         let prev_px =0; let prev_py =0;
 
@@ -314,6 +324,8 @@ class App {
         let f_p = this.toolbox.addFolder( 'Parameters' );
         f_p.add( this.annulus, 'showDebug' ).name( 'Debug' );
         //f_p.add( this.annulus, 'frame', 0.0, 1.0 ).name( 'Frame' ).step( 0.01);
+        f_p.add( this.annulus, 'segments', 10, 100 ).name( 'Segments' ).step( 1 );
+        f_p.add( this.annulus, 'thickness', 0, 1 ).name( 'Thickness' ).step( 0.05 );
         f_p.add( this.annulus, 'animate' ).name( 'Animate' );
         f_p.open();
 
