@@ -2,7 +2,7 @@ const COLOR0 = [ 60, 200, 80 ];
 const COLOR1 = [ 250, 195, 50 ];
 const COLOR2 = [ 250, 30, 50 ];
 const EXCITEMENT_SCALE = 1.0;
-
+const BACKGROUND = "#333";
 
 class SVGArea {
     constructor( { container_elem = null } ) {
@@ -173,11 +173,11 @@ class Annulus {
             
             let osc =this.oscillator( out_segs, i % out_segs, this._frame);  
             let re =r + (osc+.5)  * s / (r*4);
-            let re1=r + (osc+.5)  * s / (r*16);
-            let re2=r + (1-osc+.5)* s / (r*16);
+            let re1=r - (1-osc+.5) * s / (r*8);
+            let re2=r - (1-osc+.5) * s / (r*8);
             
             let prev_theta =theta;
-            theta += theta_step * (1-osc+.49);
+            theta += theta_step * (1-osc+.48);
             //theta =next_theta();
 
             if( i == out_segs ) theta = 2*Math.PI;
@@ -290,12 +290,14 @@ class App {
     constructor( { container_id ='' } ) {
         console.log( 'niemand ter aarde weet, hoe het eigenlijk begon, het droevige verhaal van de nozem en de non' );
 
+        this.backgroundColor = BACKGROUND;
+
         // Create a viewport container inside the given element id
         this.container_elem =document.getElementById( container_id );
         if( typeof this.container_elem == 'undefined' )
             this.container_elem =document.body;
 
-        let svg_elem = document.createElement( 'img' );
+        let svg_elem = document.createElement( 'object' );
             svg_elem.className = 'svgarea';
         this.container_elem.appendChild( svg_elem );
 
@@ -304,6 +306,13 @@ class App {
         this.annulus = new Annulus( this.svgarea );
      
         this.setupToolbox();
+    }
+
+    get backgroundColor() { return this._background; }
+
+    set backgroundColor(c) {
+        this._background =c;
+        document.body.style.background = c;
     }
 
     setupToolbox() {
@@ -318,7 +327,7 @@ class App {
         f_c.addColor( this.annulus, 'color0' ).name( 'Low' ).onFinishChange( () => { this.annulus.update(); } ) ;
         f_c.addColor( this.annulus, 'color1' ).name( 'Medium' );
         f_c.addColor( this.annulus, 'color2' ).name( 'High' );
-//        f_c.addColor( this.viewport, 'backgroundColor' ).name( 'Background' );
+        f_c.addColor( this, 'backgroundColor' ).name( 'Background' );
         f_c.open();
         
         let f_p = this.toolbox.addFolder( 'Parameters' );
