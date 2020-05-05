@@ -5,6 +5,11 @@ const RED = [ 250, 30, 50 ];
 const GREY = [ 150, 150, 150 ];
 const EXCITEMENT_SCALE = 1.0;
 const BACKGROUND = [ 50, 50, 50 ];
+// Face 'enum'
+const FACE_NONE =0;
+const FACE_SIMPLE =1;
+const FACE_TROUBLED =2;
+const FACE_SAD =3;
  
 /* 
  * Utility functions 
@@ -67,6 +72,7 @@ class Vis {
         this._palette  =[[0,0,0],[0,0,0],[0,0,0],[0,0,0]];
         this._thickness=0.5;
         this._segs     =10;
+        this._face     =FACE_NONE;
     }
 
     get color0()        { return this._palette[0]; }
@@ -83,6 +89,9 @@ class Vis {
 
     get thickness()     { return this._thickness; }
     set thickness(n)    { this._thickness =n; }
+
+    get face()          { return this._face; }
+    set face(b)         { this._face =b; }
     
     update( elem )      { }
     
@@ -95,6 +104,90 @@ class Vis {
         return (scaled < .5)
             ? colorLerp( this._palette[0], this._palette[1], scaled * 2.0 )
             : colorLerp( this._palette[1], this._palette[2], (scaled-.5) * 2.0 );
+    }
+
+    makeFace( elem, r, color ) {
+        var makePath =function( elem, p, r, color ) {
+            let m = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            m.setAttributeNS(null, 'fill', 'none');
+            m.setAttributeNS(null, 'stroke', rgbToHex(color));
+            m.setAttributeNS(null, 'stroke-width', .1 * r);
+            m.setAttributeNS(null, 'stroke-linecap', 'round');
+            m.setAttributeNS(null, 'd', p );
+            elem.appendChild(m);
+        }
+        if( this.face == FACE_SIMPLE ) {
+            let y = .25 * r;
+            let y2 =r * (.5 - this._parent._stress / EXCITEMENT_SCALE);
+             
+            // Mouth
+            let p = " M " + -.5 * r + ", " + y + " Q0, " + (y2 + y) + ", " + .5 * r + ", " + y;
+            makePath( elem, p, r, color );
+
+            // Eyes
+            let leye = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            leye.setAttributeNS(null, 'fill', rgbToHex(color));
+            leye.setAttributeNS(null, 'r', .05 * r);
+            leye.setAttributeNS(null, 'cx', -.7 * r);
+            leye.setAttributeNS(null, 'cy', 0);
+            elem.appendChild(leye);
+            
+            let reye = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            reye.setAttributeNS(null, 'fill', rgbToHex(color));
+            reye.setAttributeNS(null, 'r', .05 * r);
+            reye.setAttributeNS(null, 'cx', .7 * r);
+            reye.setAttributeNS(null, 'cy', 0);
+            elem.appendChild(reye);
+        } else if ( this.face == FACE_TROUBLED ) {
+            
+            // Mouth
+            let y = .25 * r;
+            let y1 = r * .5;
+            let y2 = r * (.5 - this._parent._stress / EXCITEMENT_SCALE);
+             
+            let p = " M" + -.5 * r + ", " + y 
+                + " C" + -.25 * r + ", " + (y2 + y) 
+                + " " + .25 * r + ", " + (y1 + y) 
+                + " " + .5 * r + ", " + y;
+            makePath( elem, p, r, color );
+
+            // Eyes
+            let x3 = r * (.2 * this._parent._stress / EXCITEMENT_SCALE); 
+            let y3 = r * (.12 * this._parent._stress / EXCITEMENT_SCALE); 
+
+            let eyes = " M" + -.6 * r + ", " + 0
+                     + " l" + (-x3) + ", " + (-y3)
+                     + " M" + -.6 * r + ", " + 0
+                     + " l" + (-x3) + ", " + y3
+                     + " M" + .6 * r + ", " + 0
+                     + " l" + x3 + ", " + (-y3)
+                     + " M" + .6 * r + ", " + 0
+                     + " l" + x3 + ", " + y3;
+            makePath( elem, eyes, r, color );
+        } else if ( this.face == FACE_SAD ) {
+            
+            // Mouth
+            let y = .25 * r;
+            let y1 = r * .5;
+            let y2 = r * (.5 - this._parent._stress / EXCITEMENT_SCALE);
+             
+            let p = " M" + -.5 * r + ", " + y 
+                + " C" + -.25 * r + ", " + (y2 + y) 
+                + " " + .25 * r + ", " + (y1 + y) 
+                + " " + .5 * r + ", " + y;
+            makePath( elem, p, r, color );
+
+            // Eyes
+            let x3 = r * (.15 * this._parent._stress / EXCITEMENT_SCALE); 
+            let y3 = r * (.05 * this._parent._stress / EXCITEMENT_SCALE); 
+
+            let eyes = " M" + -.6 * r + ", " + (-y3)
+                     + " l" + x3 + ", " + (-y3*2)
+                     + " M" + .6 * r + ", " + (-y3)
+                     + " l" + (-x3) + ", " + (-y3*2)
+            makePath( elem, eyes, r, color );
+        }
+
     }
 
 }
@@ -117,7 +210,8 @@ class RingVis extends Vis {
         const thickness = this.thickness; // Thickness of the ring
         const t = r * (1.0-thickness);
         const s = Math.pow( this._parent._stress / EXCITEMENT_SCALE,  2 ) + 0.05;
-        const color_str =rgbToHex( super.stressToColor( this._parent.stress ) ); 
+        const col = super.stressToColor( this._parent.stress );
+        const color_str =rgbToHex( col ); 
 
         // Clear out the old stuff
         while( elem.lastChild ) elem.removeChild( elem.lastChild );
@@ -130,22 +224,27 @@ class RingVis extends Vis {
 
         let p = "";
         
+        // Outer circle
+        //
+
         let theta =0;
         let theta_step =(Math.PI*2)/out_segs;
         let hdist =0;
        
         let prev_px =0; let prev_py =0;
 
-        for( let i =0; i <= out_segs; i++) {
+        for( let i =0; i < out_segs; i++) {
             
-            let osc =oscillator( out_segs, i % out_segs, this._parent._frame);  
+            let osc =oscillator( out_segs, i % (out_segs-1), this._parent._frame);  
             let re =r + (osc+.5)  * s / (r*4);
             let re1=r - (1-osc+.5) * s / (r*8);
             let re2=r - (1-osc+.5) * s / (r*8);
             
             let prev_theta =theta;
-            theta += theta_step * (1-osc+.48);
-            //theta =next_theta();
+            if( i == out_segs - 1 )
+                theta =Math.PI*2;
+            else
+                theta += theta_step * (1-osc+.5);
 
             if( i == out_segs ) theta = 2*Math.PI;
 
@@ -211,6 +310,8 @@ class RingVis extends Vis {
 
         }
         
+        // Inner circle
+        //
         theta =0;
         theta_step =-(Math.PI*2)/in_segs;
 
@@ -248,6 +349,11 @@ class RingVis extends Vis {
 
 
         circle.setAttributeNS(null, 'd', p);
+
+        // The face
+        //
+
+        this.makeFace( elem, this.thickness == 1 ? r : t, this.thickness == 1 ? this.colorbg : col );
     }
 }
 
@@ -367,34 +473,9 @@ class WeerVis extends Vis {
         circle.setAttributeNS(null, 'd', p);
         
         // Step two. The face
-        let y = .25 * r;
-        let y2 =.5 - this._parent._stress / EXCITEMENT_SCALE;
-         
-        // Mouth
-        p = " M " + -.5 * r + ", " + y + " Q0, " + (y2 + y * r) + ", " + .5 * r + ", " + y;
-        let mouth = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        mouth.setAttributeNS(null, 'fill', 'none');
-        mouth.setAttributeNS(null, 'stroke', rgbToHex(this.colorbg));
-        mouth.setAttributeNS(null, 'stroke-width', .1 * r);
-        mouth.setAttributeNS(null, 'stroke-linecap', 'round');
-        mouth.setAttributeNS(null, 'd', p );
-        elem.appendChild(mouth);
+        //
 
-        // Eyes
-        let leye = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        leye.setAttributeNS(null, 'fill', rgbToHex(this.colorbg));
-        leye.setAttributeNS(null, 'r', .05 * r);
-        leye.setAttributeNS(null, 'cx', -.7 * r);
-        leye.setAttributeNS(null, 'cy', 0);
-        elem.appendChild(leye);
-        
-        let reye = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        reye.setAttributeNS(null, 'fill', rgbToHex(this.colorbg));
-        reye.setAttributeNS(null, 'r', .05 * r);
-        reye.setAttributeNS(null, 'cx', .7 * r);
-        reye.setAttributeNS(null, 'cy', 0);
-        elem.appendChild(reye);
-
+        this.makeFace( elem, r, this.colorbg );
 
       /*  let l = this._parent._stress < .5 ? 0 : 1;
         let r2=(10 * (.5 - Math.abs(.5 - this._parent._stress)) + .5) * r; 
@@ -521,6 +602,9 @@ class Annulus {
 
     get visualisation() { return this._vis; }
     set visualisation(v){ this._vis =v; this.update(); }
+
+    get face()          { return this._vis.face; }
+    set face(n)         { this._vis.face =n; this.update(); }
     
 
     update() {
@@ -582,7 +666,7 @@ class App {
 
         this.visList = { "Ring" : new RingVis( this.annulus ), "Weer" : new WeerVis( this.annulus ) };
         this._vis ="";
-        this.vis = "Weer";
+        this.vis = "Ring";
         this.annulus.start();
 
         this.backgroundColor = BACKGROUND;
@@ -611,6 +695,7 @@ class App {
         let f_a = this.toolbox.addFolder( 'Annulus' );
         f_a.add( this.annulus, 'stress', 0.0, EXCITEMENT_SCALE ).name( 'Stress' ).step( 0.01 * EXCITEMENT_SCALE ).listen();
         f_a.add( this, 'vis', [ "Ring", "Weer" ] ).name( 'Vis' );
+        f_a.add( this.annulus, 'face', { None : FACE_NONE, Simple : FACE_SIMPLE, Troubled : FACE_TROUBLED, Sad : FACE_SAD } ).name( 'Face' );
         f_a.open();
 
         // Colors toolbox
